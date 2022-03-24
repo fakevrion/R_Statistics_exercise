@@ -243,5 +243,216 @@ ggplot(data =  mpg, mapping = aes(x = displ, y = hwy)) +
 ggplot(data = mpg, mapping = aes(x = displ, y = hwy, color = drv)) +
   geom_point()
 
-##
 
+
+##1.7 统计变换
+##diamonds根据cut变量分组
+ggplot(data = diamonds) +
+  geom_bar(mapping = aes(x = cut))
+
+##几何对象函数与统计变换函数可以互用
+ggplot(data = diamonds) +
+  stat_count(mapping = aes(x = cut))
+
+##将条形的高度映射为y轴变量的初始值
+demo <- tribble(
+  ~a, ~b,
+  "bar_1", 20,
+  "bar_2", 30,
+  "bar_3", 40
+)
+
+ggplot(data = demo) +
+  geom_bar(
+    mapping = aes(x = a, y = b), stat = "identity"
+  )
+
+##修改变量的默认映射
+ggplot(data = diamonds) +
+  geom_bar(
+    mapping = aes(x = cut, y = ..prop.., group = 1)
+  )
+
+##找出由统计变换计算出的变量，查看帮助文件中的“Computed variables”
+
+##强调统计变换
+ggplot(data = diamonds) +
+  stat_summary(
+    mapping = aes(x =cut, y = depth),
+    fun.min = min,
+    fun.max = max,
+    fun = median
+  )
+
+##?stat_bin查看统计变换
+
+##1.7 练习
+##(1) stat_summary()默认的几何对象为geom_pointrange()
+ggplot(data = diamonds) +
+  geom_pointrange(
+    mapping = aes(x = cut, y = depth),
+    stat = "summary",
+    fun = median,
+    fun.min = min,
+    fun.max = max
+  )
+
+##(2) geom_col()功能
+ggplot(data = diamonds) +
+  geom_col(mapping = aes(x = cut, y = depth))
+##geom_col()针对常规柱状图有x和y，geom_bar()针对计数柱状图，仅含y
+
+##(3) 
+
+##(4) 
+if (FALSE)
+{
+  "
+  y，predicted value
+  ymin，lower pointwise confidence interval around the mean
+  ymax，upper pointwise confidence interval around the mean
+  se，standard error
+  method和formula
+  "
+}
+
+##(5) 
+ggplot(data = diamonds) +
+  geom_bar(
+    mapping = aes(x = cut, y = ..prop.., group = 1)
+  )
+
+ggplot(data = diamonds) +
+  geom_bar(
+    mapping = aes(x = cut, y = ..prop..)
+  )
+
+
+
+##1.8 位置调整
+##color fill上色
+ggplot(data = diamonds) +
+  geom_bar(mapping = aes(x = cut, color = cut))
+
+ggplot(data = diamonds) +
+  geom_bar(mapping = aes(x = cut, fill = cut))
+
+##将fill属性映射到另一变量clarity，堆叠条形图
+ggplot(data = diamonds) +
+  geom_bar(mapping = aes(x = cut, fill = clarity))
+
+##非堆叠
+##position = "identity"
+##alpha 透明度
+ggplot(
+  data = diamonds,
+  mapping = aes(x = cut, fill = clarity)
+) +
+  geom_bar(alpha = 1/5, position = "identity")
+##fill = NA 完全透明
+ggplot(
+  data = diamonds,
+  mapping = aes(x = cut, color = clarity)
+) +
+  geom_bar(fill = NA, position = "identity")
+
+##position = "fill"
+##类似堆叠，但相同高度，可见比例
+ggplot(data = diamonds) +
+  geom_bar(
+    mapping = aes(x = cut, fill = clarity),
+    position = "fill"
+  )
+
+##position = "dodge" 并列放置
+ggplot(data = diamonds) +
+  geom_bar(
+    mapping = aes(x = cut, fill = clarity),
+    position = "dodge"
+  )
+
+##适合散点图的位置调整
+##position = "jitter" 设置小的随机抖动，体现数据聚集
+ggplot(data = mpg) +
+  geom_point(
+    mapping = aes(x = displ, y = hwy),
+    position = "jitter"
+  )
+##geom_jitter()
+
+##1.8 练习
+##(1) 存在点的重合，设置随机抖动
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+  geom_point(position = "jitter")
+
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+  geom_jitter()
+
+##(2) 抖动程度
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+  geom_jitter(width = 5, height = 5)
+
+##(3) 对比geom_jitter() geom_count()
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+  geom_jitter()
+##点的大小反应数据数
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+  geom_count()
+
+##(4) 
+ggplot(data = mpg, mapping = aes(x = drv, y = hwy)) +
+  geom_boxplot()
+
+
+
+##1.9 坐标系
+##coord_flip() 交换x轴和y轴
+ggplot(data = mpg, mapping = aes(x = class, y = hwy)) +
+  geom_boxplot()
+
+ggplot(data = mpg, mapping = aes(x = class, y = hwy)) +
+  geom_boxplot() +
+  coord_flip()
+
+##coord_quickmap() 地图纵横比
+nz <- map_data("nz")
+
+ggplot(nz, aes(long, lat, group = group)) +
+  geom_polygon(fill = "white", color = "black")
+
+ggplot(nz, aes(long, lat, group = group)) +
+  geom_polygon(fill = "white", color = "black") +
+  coord_quickmap()
+
+##coord_polar() 极坐标
+bar <- ggplot(data = diamonds) +
+  geom_bar(
+    mapping = aes(x = cut, fill = cut),
+    show.legend = FALSE,
+    width = 1,
+  ) +
+  theme(aspect.ratio = 1) +
+  labs(x = NULL, y = NULL)
+
+bar
+bar + coord_flip()
+bar + coord_polar()
+
+##1.9 练习
+##(1) 堆叠转饼图
+ggplot(
+  data = diamonds,
+  mapping = aes(x = cut, fill = clarity)
+) +
+  geom_bar() +
+  coord_polar()
+
+##(2) labs() 功能
+
+##(3) coord_quikmap() 与 coord_map() 区别
+
+##(4) 下图表明城市和公路燃油效率之间有什么关系？为什么coord_fixed() 函数很重要？geom_abline() 函数的作用是什么？
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+  geom_point() +
+  geom_abline() +
+  coord_fixed()
