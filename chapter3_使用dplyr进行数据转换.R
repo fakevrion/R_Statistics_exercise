@@ -78,3 +78,28 @@ NA ^ 0
 NA | TRUE
 FALSE & NA
 NA * 0
+
+
+##3.3 使用arrange()排列行
+arrange(flights, year, month, day)
+arrange(flights, desc(arr_delay))##desc() 降序
+
+##缺失值总是排在最后：
+df <- tibble(x = c(5, 2, NA))
+arrange(df, x)
+arrange(df, desc(x))
+
+##3.3 练习
+##(1) 使用arrange() 将缺失值排在最前面，使用is.na()
+arrange(df, desc(is.na(df)))
+
+##(2) 对flights 排序以找出延误时间最长的航班。找出出发时间最早的航班。
+head(arrange(flights, desc(arr_delay + dep_delay)), 1)
+head(arrange(flights, dep_time), 1)
+
+##(3) 对flights 排序以找出速度最快的航班。
+arrange(flights, desc(distance / air_time))
+
+##(4) 哪个航班的飞行时间最长？哪个最短？
+arrange(flights, air_time)
+arrange(flights, desc(air_time))
