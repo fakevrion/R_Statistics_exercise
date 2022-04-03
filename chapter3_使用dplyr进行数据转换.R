@@ -234,3 +234,343 @@ sinpi(x)
 tanpi(x)
 
 
+##3.6 使用summarize() 进行分组摘要
+summarize(flights, delay = mean(dep_delay, na.rm = TRUE))
+
+view(flights)
+by_day <- group_by(flights, year, month, day)
+view(by_day)
+summarize(by_day, delay = mean(dep_delay, na.rm = TRUE))
+
+##测试group_by() 函数含义 按月分类
+by_month <- group_by(flights, year, month)
+summarize(by_month, delay = mean(dep_delay, na.rm = TRUE))
+##按年分类
+by_year <- group_by(flights, year)
+summarize(by_year, delay = mean(dep_delay, na.rm = TRUE))
+
+
+##3.6.1 使用管道组合多种操作
+##研究每个目的地的距离和平均延误时间之间的关系。使用已经了解的dplyr
+by_dest <- group_by(flights, dest)
+by_dest
+delay <- summarize(by_dest, 
+  count = n(),
+  dist = mean(distance, na.rm = TRUE),
+  delay = mean(arr_delay, na.rm = TRUE)
+)
+delay
+delay <- filter(delay, count > 20, dest != "HNL")
+delay
+##750英里内，平均延误时间会随着距离的增加而增加，接着会随着距离的增加而减少。
+ggplot(data= delay, mapping = aes(x = dist, y = delay)) +
+  geom_point(aes(size = count), alpha = 1/3) +
+  geom_smooth(se = FALSE)
+
+##使用管道
+delays <- flights %>%
+  group_by(dest) %>%
+  summarize(
+    count = n(),
+    dist = mean(distance, na.rm = TRUE),
+    delay = mean(arr_delay, na.rm = TRUE)
+  ) %>%
+  filter(count > 20, dest != "NHL")
+delays
+
+
+##3.6.2 缺失值
+##聚合函数都有一个na.rm 参数，去除缺失值
+flights %>%
+  group_by(year, month, day) %>%
+  summarize(mean = mean(dep_delay, na.rm = TRUE))
+
+not_cancelled <- flights %>%
+  filter(!is.na(dep_delay), !is.na(arr_delay))
+
+not_cancelled %>%
+  group_by(year, month ,day) %>%
+  summarize(mean = mean(dep_delay))
+
+
+##3.6.3 计数
+##根据机尾编号，最长平均延误时间的飞机
+delays <- not_cancelled %>%
+  group_by(tailnum) %>%
+  summarize(
+    delay = mean(arr_delay)
+  )
+ggplot(data = delays, mapping = aes(x = delay)) +
+  geom_freqpoly(binwidth = 10)
+
+##散点图
+delays <- not_cancelled %>%
+  group_by(tailnum) %>%
+  summarize(
+    delay = mean(arr_delay),
+    n = n()
+  )
+
+ggplot(data = delays, mapping = aes(x = n, y =delay)) +
+  geom_point(alpha = 1/10)
+
+
+##筛选掉观测数量少的分组
+delays %>%
+  filter(n > 25) %>%
+  ggplot(mapping = aes(x = n, y = delay)) +
+    geom_point(alpha = 1/10)
+
+##棒球击打率
+#转换成tibble
+library("Lahman")
+batting <- as_tibble(Lahman::Batting)
+
+batters <- batting %>%
+  group_by(playerID) %>%
+  summarize(
+    ba = sum(H, na.rm = TRUE) / sum(AB, na.rm = TRUE),
+    ab = sum(AB, na.rm = TRUE)
+  )
+
+batters %>%
+  filter(ab > 100) %>%
+  ggplot(mapping = aes(x = ab, y = ba)) +
+    geom_point() +
+    geom_smooth(se = FALSE)
+
+##3.6.4 常用的摘要函数
+##位置度量 mean(x) median(x) 结合逻辑筛选
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  summarize(
+    avg_delay1 = mean(arr_delay),
+    avg_delay2 = mean(arr_delay[arr_delay > 0])
+  )
+
+##分散程度度量 sd(x) IQR(x) mad(x)
+not_cancelled %>%
+  group_by(dest) %>%
+  summarize(distance_sd = sd(distance)) %>%
+  arrange(desc(distance_sd))
+
+##秩的度量 min(x) quantile(x, 0.25) max(x)
+#每天最早和最晚的航班何时出发？
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  summarize(
+    first = min(dep_time),
+    last = max(dep_time)
+  )
+
+##定位度量 first(x) nth(x, 2) last(x)
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  summarize(
+    fisrt_dep = first(dep_time),
+    last_dep = last(dep_time)
+  )
+
+#这些函数对筛选操作进行了排秩方面的补充。筛选会返回所有变量，每个观测在单独的一行中：
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  mutate(r = min_rank(desc(dep_time))) %>%
+  filter(r %in% range(r))
+
+##计数 n() 计算非缺失值的数量：sum(!is.na(x))；计算唯一值的数量 n_distinct(x)
+#哪个目的地具有最多的航空公司？
+not_cancelled %>%
+  group_by(dest) %>%
+  summarise(carriers = n_distinct(carrier)) %>%
+  arrange(desc(carriers))
+
+#因为计数太常用了，所以dplyr 提供了一个简单的辅助函数，用于只需要计数的情况：
+not_cancelled %>%
+  count(dest)
+
+#提供一个加权变量
+#计算每架飞机总里程数
+not_cancelled %>%
+  count(tailnum, wt = distance)
+
+##逻辑值的计数和比例 sum(x > 10) mean(y == 0)
+#多少架航班是在早上5点前出发的？
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  summarize(n_early = sum(dep_time < 500))
+
+#延误超过1小时的航班比例是多少？
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  summarize(hour_perc = mean(arr_delay > 60))
+
+
+##3.6.5 按多个变量分组
+#当使用多个变量进行分组时，每次的摘要统计会用掉一个分组变量。
+daily <- group_by(flights, year, month, day)
+(per_day <- summarize(daily, flights = n()))
+
+(per_month <- summarize(per_day, flights = sum(flights)))
+
+(per_year <- summarize(per_month, flights = sum(flights)))
+
+##3.6.6 取消分组
+daily %>%
+  ungroup() %>%
+  summarize(flights = n())
+
+##3.6.7 练习
+#(1)通过头脑风暴，至少找出5 种方法来确定一组航班的典型延误特征。思考以下场景。
+#一架航班50% 的时间会提前15 分钟，50% 的时间会延误15 分钟。
+flights %>%
+  filter(!is.na(dep_time), !is.na(arr_time)) %>%
+  group_by(tailnum) %>%
+  summarize(pri_15 = mean(arr_delay <= -15), del_15 = mean(arr_delay >= 15)) %>%
+  filter(pri_15 >= 0.5)
+#一架航班总是会延误10 分钟。
+flights %>%
+  filter(!is.na(dep_time), !is.na(arr_time)) %>%
+  group_by(tailnum) %>%
+  arrange(dep_delay >= 10)
+#一架航班50% 的时间会提前30 分钟，50% 的时间会延误30 分钟。
+#一架航班99% 的时间会准时，1% 的时间会延误2 个小时。
+
+##(2) 找出另外一种方法，这种方法要可以给出与not_cancelled %>% count(dest) 和not_cancelled %>% count(tailnum, wt = distance) 同样的输出（不能使用count()）。
+not_cancelled %>%
+  count(dest)
+not_cancelled %>%
+  group_by(dest) %>%
+  summarize(n())
+
+not_cancelled %>%
+  count(tailnum, wt = distance)
+
+not_cancelled %>%
+  group_by(tailnum) %>%
+  summarize(m = sum(distance))
+
+##(3) 我们对已取消航班的定义(is.na(dep_delay)) | (is.na(arr_delay)) 稍有欠佳。为什么？哪一列才是最重要的？
+
+##(4) 查看每天取消的航班数量。其中存在模式吗？已取消航班的比例与平均延误时间有关系吗？
+cancelled_per_day <- 
+  flights %>%
+  mutate(cancelled = (is.na(arr_delay) | is.na(dep_delay))) %>%
+  group_by(year, month, day) %>%
+  summarize(
+    cancelled_num = sum(cancelled),
+    flights_num = n()
+  )
+cancelled_per_day
+ggplot(data = cancelled_per_day, mapping = aes(x = flights_num, y = cancelled_num)) +
+  geom_point()
+
+
+cancelled_and_delays <- 
+  flights %>%
+  mutate(cancelled = (is.na(arr_delay) | is.na(dep_delay))) %>%
+  group_by(year, month, day) %>%
+  summarise(
+    cancelled_prop = mean(cancelled),
+    avg_dep_delay = mean(dep_delay, na.rm = TRUE),
+    avg_arr_delay = mean(arr_delay, na.rm = TRUE)
+  ) %>%
+  ungroup()
+ggplot(cancelled_and_delays) +
+  geom_point(aes(x = avg_dep_delay, y = cancelled_prop))
+                        
+##(5) 哪个航空公司的延误情况最严重？挑战：你能否分清这是由于糟糕的机场设备，还是航空公司的问题？为什么能？为什么不能？（提示：考虑一下flights %>% group_by(carrier, dest) %>% summarize(n())。）
+flights %>%
+  group_by(carrier) %>%
+  summarize(arr_delays = mean(arr_delay, na.rm = TRUE)) %>%
+  arrange(desc(arr_delays))
+
+flights %>%
+  filter(!is.na(arr_delay)) %>%
+  group_by(origin, dest, carrier) %>%
+  summarise(
+    arr_delay = sum(arr_delay),
+    flights = n()
+  ) %>%
+  group_by(origin, dest) %>%
+  mutate(
+    arr_delay_total = sum(arr_delay),
+    flights_total = sum(flights)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    arr_delay_others = (arr_delay_total - arr_delay) /
+      (flights_total - flights),
+    arr_delay_mean = arr_delay / flights,
+    arr_delay_diff = arr_delay_mean - arr_delay_others
+  ) %>%
+  filter(is.finite(arr_delay_diff)) %>%
+  group_by(carrier) %>%
+  summarise(arr_delay_diff = mean(arr_delay_diff)) %>%
+  arrange(desc(arr_delay_diff))
+
+##(6) 计算每架飞机在第一次延误超过1 小时前的飞行次数。
+delay_60 <- flights %>%
+  filter(!is.na(arr_delay)) %>%
+  mutate(delay_60 = arr_delay > 60)
+
+view(delay_60)
+
+#(7) count() 函数中的sort 参数的作用是什么？何时应该使用这个参数？
+
+
+##3.7 分组新变量和筛选器
+#找出每个分组中最差的成员：
+flights_sml <- flights %>%
+  group_by(year, month, day) %>%
+  filter(rank(desc(arr_delay)) < 10)
+view(flights_sml)
+
+#找出大于某个阈值的所有分组：
+popular_dests <- flights %>%
+  group_by(dest) %>%
+  filter(n() > 365)
+
+#对数据进行标准化以计算分组指标：
+popular_dests %>% 
+  filter(arr_delay > 0) %>%
+  mutate(prop_delay = arr_delay / sum(arr_delay)) %>%
+  select(year:day, dest, arr_delay, prop_delay)
+
+##练习
+#(1) 查看常用的新变量函数和筛选函数的列表。当它们与分组操作结合使用时，功能有哪些变化？
+
+
+#(2) 哪一架飞机（用机尾编号来识别，tailnum）具有最差的准点记录？
+flights %>%
+  group_by(tailnum) %>%
+  summarize(
+    prop_delay = mean(arr_delay > 0)
+  ) %>%
+  arrange(desc(prop_delay))
+
+#(3) 如果想要尽量避免航班延误，那么应该在一天中的哪个时间搭乘飞机？
+flights %>%
+  filter(!is.na(arr_delay)) %>%
+  group_by(hour) %>%
+  summarize(
+    delay_prop = mean(arr_delay > 0)
+  ) %>%
+  arrange(desc(delay_prop))
+
+#(4) 计算每个目的地的延误总时间的分钟数，以及每架航班到每个目的地的延误时间比例。
+flights %>%
+  filter(!is.na(arr_delay), arr_delay > 0) %>%
+  group_by(dest, tailnum) %>%
+  mutate(delay_prop = arr_delay / sum(arr_delay)) %>%
+  select(year:day, dest, tailnum, arr_delay, delay_prop)
+
+#(5) 延误通常是由临时原因造成的：即使最初引起延误的问题已经解决，但因为要让前面的航班先起飞，所以后面的航班也会延误。使用lag() 函数探究一架航班延误与前一架航班延误之间的关系。
+
+#(6) 查看每个目的地。你能否发现有些航班的速度快得可疑？（也就是说，这些航班的数据可能是错误的。）计算出到目的地的最短航线的飞行时间。哪架航班在空中的延误时间最长？
+
+#(7) 找出至少有两个航空公司的所有目的地。使用数据集中的信息对航空公司进行排名。
+flights %>%
+  group_by(carrier, dest) %>%
+  summarize(dest_flight_num = n()) %>%
+  summarize(dest_num = n()) %>%
+  arrange(desc(dest_num))
