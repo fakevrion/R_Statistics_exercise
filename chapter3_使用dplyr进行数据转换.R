@@ -574,3 +574,4 @@ flights %>%
   summarize(dest_flight_num = n()) %>%
   summarize(dest_num = n()) %>%
   arrange(desc(dest_num))
+
