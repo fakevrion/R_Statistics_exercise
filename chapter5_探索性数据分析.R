@@ -120,3 +120,22 @@ ggplot(data = diamonds2, mapping = aes(x = y)) +
 #(2) na.rm = TRUE 在mean() 和sum() 函数中的作用是什么？
 mean(diamonds2$y)
 sum(diamonds2$y)
+
+
+##5.5 相关变动
+
+##5.5.1 分类变量与连续变量
+##y轴默认为计数,难以看出形状上的差别
+ggplot(data = diamonds, mapping = aes(x = price)) +
+  geom_freqpoly(mapping = aes(color = cut), binwidth = 500)
+
+ggplot(diamonds) +
+  geom_bar(mapping = aes(x = cut))
+
+##y轴显示密度
+ggplot(
+  data = diamonds,
+  mapping = aes(x = price, y = ..density..)
+) +
+  geom_freqpoly(mapping = aes(color = cut), binwidth = 500)#这张图的部分内容非常令人惊讶，其显示出一般钻石（质量最差）的平均价格是最高的！
+
