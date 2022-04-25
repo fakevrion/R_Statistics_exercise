@@ -139,3 +139,82 @@ ggplot(
 ) +
   geom_freqpoly(mapping = aes(color = cut), binwidth = 500)#这张图的部分内容非常令人惊讶，其显示出一般钻石（质量最差）的平均价格是最高的！
 
+##按分类变量的分组显示连续变量分布的另一种方式是使用箱线图
+ggplot(data = diamonds, mapping = aes(x = cut, y = price)) +
+  geom_boxplot()
+
+##cut 是一个有序因子：“一般”不如“较好”、“较好”不如“很好”，以此类推。因为很多分类变量并没有这种内在的顺序，所以有时需要对其重新排序来绘制信息更丰富的图形。重新排序的其中一种方法是使用reorder() 函数。
+ggplot(data = mpg, mapping = aes(x = class, y = hwy)) +
+  geom_boxplot()
+
+ggplot(data = mpg) +
+  geom_boxplot(
+    mapping = aes(
+      x = reorder(class,hwy, FUN = median),
+      y = hwy
+    )
+  )
+
+##图形旋转90度 coord_flip()
+ggplot(data = mpg) +
+  geom_boxplot(
+    mapping = aes(
+      x = reorder(class, hwy, FUN = median),
+      y = hwy
+    )
+  ) +
+  coord_flip()
+
+##练习
+
+
+##5.5.2 两个分类变量
+ggplot(data = diamonds) +
+  geom_count(mapping = aes(x = cut, y = color))
+
+diamonds %>% 
+  count(color, cut)
+
+##geom_tile()函数和填充图形属性进行可视化
+diamonds %>% 
+  count(color, cut) %>%
+  ggplot(mapping = aes(x = color, y = cut)) +
+    geom_tile(mapping = aes(fill = n))
+
+##练习
+#(1) 如何调整count 数据，使其能更清楚地表示出切割质量在颜色间的分布，或者颜色在切割质量间的分布？
+diamonds %>%
+  count(color, cut) %>%
+  group_by(color) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(mapping = aes(x = color, y = cut)) +
+  geom_tile(mapping = aes(fill = prop))
+
+#(2) 使用geom_tile() 函数结合dplyr 来探索平均航班延误数量是如何随着目的地和月份的变化而变化的。为什么这张图难以阅读？如何改进？
+nycflights13::flights %>%
+  group_by(month, dest) %>%
+  summarise(dep_delay = mean(dep_delay, na.rm = TRUE)) %>%
+  ggplot(aes(x = factor(month), y = dest, fill = dep_delay)) +
+  geom_tile() +
+  labs(x = "Month", y = "Destination", fill = "Departure Delay")
+#> `summarise()` regrouping output by 'month' (override with `.groups` argument)
+
+nycflights13::flights %>%
+  group_by(month, dest) %>%                                 # This gives us (month, dest) pairs
+  summarise(dep_delay = mean(dep_delay, na.rm = TRUE)) %>%
+  group_by(dest) %>%                                        # group all (month, dest) pairs by dest ..
+  filter(n() == 12) %>%                                     # and only select those that have one entry per month 
+  ungroup() %>%
+  mutate(dest = reorder(dest, dep_delay)) %>%
+  ggplot(aes(x = factor(month), y = dest, fill = dep_delay)) +
+  geom_tile() +
+  labs(x = "Month", y = "Destination", fill = "Departure Delay")
+#> `summarise()` regrouping output by 'month' (override with `.groups` argument)
+
+
+#(3) 为什么在以上示例中使用aes(x = color, y = cut) 要比aes(x = cut, y = color) 更好？
+diamonds %>% 
+  count(color, cut) %>%
+  ggplot(mapping = aes(x = cut, y = color)) +
+  geom_tile(mapping = aes(fill = n))
+
